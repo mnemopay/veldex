@@ -88,7 +88,7 @@ export const AuthService = {
   login(input: LoginInput): User {
     const db = getDb();
     const row = db
-      .prepare('SELECT * FROM users WHERE email = ?')
+      .prepare('SELECT id, email, password_hash as passwordHash, role, country, name, created_at as createdAt FROM users WHERE email = ?')
       .get(input.email.toLowerCase().trim()) as User | undefined;
 
     if (!row) throw new Error('Invalid credentials');
@@ -101,7 +101,7 @@ export const AuthService = {
   findById(id: string): UserPublic | null {
     const db = getDb();
     const row = db
-      .prepare('SELECT * FROM users WHERE id = ?')
+      .prepare('SELECT id, email, password_hash as passwordHash, role, country, name, created_at as createdAt FROM users WHERE id = ?')
       .get(id) as User | undefined;
     return row ? toPublic(row) : null;
   },

@@ -6,6 +6,7 @@
 import Fastify from 'fastify';
 import fastifyJwt from '@fastify/jwt';
 import fastifyCors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { runMigrations } from './shared/db/migrate';
 import { registerRoutes } from './api/router';
 
@@ -25,7 +26,7 @@ if (!JWT_SECRET && NODE_ENV === 'production') {
 }
 const resolvedJwtSecret = JWT_SECRET ?? 'dev-secret-change-in-production';
 
-async function bootstrap(): Promise<void> {
+export async function buildApp() {
   // ── Run schema migrations ──────────────────
   runMigrations();
 
@@ -49,8 +50,16 @@ async function bootstrap(): Promise<void> {
 
   await app.register(fastifyJwt, {
     secret: resolvedJwtSecret,
-    sign: { expiresIn: '7d' },
+    sign: { expiresIn: '1h' },
   });
+
+  // ── Rate limiting (disabled in test env) ──
+  if (process.env.RATE_LIMIT_DISABLED !== '1') {
+    await app.register(rateLimit, {
+      max: 100,
+      timeWindow: '1 minute',
+    });
+  }
 
   // ── Routes ─────────────────────────────────
   await registerRoutes(app);
@@ -66,6 +75,12 @@ async function bootstrap(): Promise<void> {
     });
   });
 
+  return app;
+}
+
+async function bootstrap(): Promise<void> {
+  const app = await buildApp();
+
   // ── Start ──────────────────────────────────
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });
@@ -78,4 +93,7 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-bootstrap();
+// Only start server when run directly (not when imported for tests)
+if (require.main === module) {
+  bootstrap();
+}

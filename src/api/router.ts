@@ -12,7 +12,18 @@ import { complianceRoutes } from '../modules/compliance/routes';
 import { intelligenceRoutes } from '../modules/intelligence/routes';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
-  app.register(authRoutes,        { prefix: '/api/auth' });
+  // Auth routes get a stricter rate limit (10/min) to prevent brute force
+  if (process.env.RATE_LIMIT_DISABLED !== '1') {
+    app.register(async function authScope(scoped) {
+      scoped.register(import('@fastify/rate-limit'), {
+        max: 10,
+        timeWindow: '1 minute',
+      });
+      scoped.register(authRoutes);
+    }, { prefix: '/api/auth' });
+  } else {
+    app.register(authRoutes, { prefix: '/api/auth' });
+  }
   app.register(marketplaceRoutes, { prefix: '/api/marketplace' });
   app.register(orderRoutes,       { prefix: '/api/orders' });
   app.register(paymentRoutes,     { prefix: '/api/payments' });

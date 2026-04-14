@@ -3,9 +3,24 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { MarketplaceService } from './service';
 import { requireAuth, requireRole } from '../../shared/auth/middleware';
 import { MnemoPay } from '@mnemopay/sdk';
+
+// ── Zod schemas ──────────────────────────────
+const CreateListingSchema = z.object({
+  cropType: z.string().min(1, 'cropType is required'),
+  quantityKg: z.number().positive('quantityKg must be a positive number'),
+  pricePerKg: z.number().positive('pricePerKg must be a positive number'),
+  currency: z.enum(['USD', 'NGN'], { message: 'currency must be USD or NGN' }),
+  location: z.string().min(1, 'location is required'),
+  description: z.string().optional(),
+});
+
+const PlaceBidSchema = z.object({
+  offerPricePerKg: z.number().positive('offerPricePerKg must be a positive number'),
+});
 
 export async function marketplaceRoutes(app: FastifyInstance): Promise<void> {
   // ── Listings ────────────────────────────────
@@ -35,22 +50,21 @@ export async function marketplaceRoutes(app: FastifyInstance): Promise<void> {
 
   // POST /api/marketplace/listings — FARMER only
   app.post('/listings', { preHandler: requireRole('FARMER') }, async (request, reply) => {
-    const body = request.body as Record<string, unknown>;
-    const { cropType, quantityKg, pricePerKg, currency, location, description } = body;
-
-    if (!cropType || !quantityKg || !pricePerKg || !currency || !location) {
-      return reply.code(400).send({ error: 'Missing required fields: cropType, quantityKg, pricePerKg, currency, location' });
+    const parsed = CreateListingSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Validation failed' });
     }
+    const { cropType, quantityKg, pricePerKg, currency, location, description } = parsed.data;
 
     const listing = MarketplaceService.createListing({
       farmerId: request.user!.sub,
-      cropType: cropType as string,
-      quantityKg: Number(quantityKg),
-      pricePerKg: Number(pricePerKg),
-      currency: currency as any,
+      cropType,
+      quantityKg,
+      pricePerKg,
+      currency,
       country: request.user!.country,
-      location: location as string,
-      description: description as string | undefined,
+      location,
+      description,
     });
 
     return reply.code(201).send({ listing });
@@ -61,12 +75,12 @@ export async function marketplaceRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/marketplace/listings/:id/bids — BUYER only
   app.post('/listings/:id/bids', { preHandler: requireRole('BUYER') }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { offerPricePerKg } = request.body as { offerPricePerKg: number };
-    const buyerId = request.user!.sub;
-
-    if (!offerPricePerKg || Number(offerPricePerKg) <= 0) {
-      return reply.code(400).send({ error: 'offerPricePerKg must be a positive number' });
+    const parsed = PlaceBidSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Validation failed' });
     }
+    const { offerPricePerKg } = parsed.data;
+    const buyerId = request.user!.sub;
 
     // Recall buyer's MnemoPay FICO score before approving bid
     let ficoScore: number | undefined;
@@ -74,8 +88,8 @@ export async function marketplaceRoutes(app: FastifyInstance): Promise<void> {
       const agentMemory = MnemoPay.quick(buyerId, { recall: 'hybrid' });
       const listing = MarketplaceService.getListing(id);
       const totalEstimate = listing
-        ? Number(offerPricePerKg) * listing.quantityKg
-        : Number(offerPricePerKg);
+        ? offerPricePerKg * listing.quantityKg
+        : offerPricePerKg;
 
       // For large bids (>$500 equivalent), recall history first
       if (totalEstimate > 500) {
@@ -93,7 +107,7 @@ export async function marketplaceRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const bid = MarketplaceService.placeBid(id, buyerId, Number(offerPricePerKg), ficoScore);
+      const bid = MarketplaceService.placeBid(id, buyerId, offerPricePerKg, ficoScore);
       return reply.code(201).send({ bid });
     } catch (err: any) {
       return reply.code(400).send({ error: err.message });
