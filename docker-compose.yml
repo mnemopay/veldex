@@ -38,6 +38,18 @@ services:
       - postgres
       - redis
 
+  ai-migrator:
+    image: node:20-alpine
+    working_dir: /app
+    environment:
+      DB_HOST: postgres
+    depends_on:
+      - postgres
+    volumes:
+      - ./services/ai-service:/app
+      - ./shared/events:/app/shared/events
+    command: sh -c "npm install && node migrate.js"
+
   ai-service:
     build:
       context: .
@@ -46,6 +58,7 @@ services:
     depends_on:
       - redis
       - postgres
+      - ai-migrator
     volumes:
       - ai_models:/models
 
