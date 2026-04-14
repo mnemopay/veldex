@@ -108,6 +108,18 @@ services:
       redis:
         condition: service_started
 
+  seed-runner:
+    image: node:20-alpine
+    working_dir: /seed
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./shared/seed:/seed
+    restart: "no"
+    command: sh -c "npm install && node seed.js"
+
 volumes:
   postgres_data:
   ai_models:

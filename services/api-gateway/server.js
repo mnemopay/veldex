@@ -39,7 +39,10 @@ fastify.register(fastifyRateLimit, {
 fastify.register(fastifyCors, { origin: '*' });
 
 // Health Check
-fastify.get('/health', async () => ({ status: 'ok', service: 'api-gateway' }));
+fastify.get('/health', async () => ({
+  status: 'ok',
+  services: ['marketplace', 'payments', 'logistics', 'ingestion', 'ai']
+}));
 
 // Auth Routes
 fastify.post('/auth/login', async (request, reply) => {
@@ -50,21 +53,40 @@ fastify.post('/auth/login', async (request, reply) => {
 });
 
 // Proxy Routes to Services
-// Marketplace Service
+// Note: prefix + wildcard forwarding:
+//   /api/marketplace/* -> http://marketplace-service:3000/* (minus /api/marketplace)
+// etc.
 fastify.register(fastifyProxy, {
-  upstream: process.env.MARKETPLACE_URL || 'http://marketplace-service:3001',
-  prefix: '/marketplace',
+  upstream: 'http://marketplace-service:3000',
+  prefix: '/api/marketplace',
   preHandler: [fastify.authenticate]
 });
 
-// AI Service
 fastify.register(fastifyProxy, {
-  upstream: process.env.AI_URL || 'http://ai-service:8000',
-  prefix: '/ai',
+  upstream: 'http://payment-service:3000',
+  prefix: '/api/payments',
   preHandler: [fastify.authenticate]
 });
 
-// Event-driven Bridge (Proxying + Event Publishing)
+fastify.register(fastifyProxy, {
+  upstream: 'http://logistics-service:3000',
+  prefix: '/api/logistics',
+  preHandler: [fastify.authenticate]
+});
+
+fastify.register(fastifyProxy, {
+  upstream: 'http://ingestion-service:3000',
+  prefix: '/api/ingestion',
+  preHandler: [fastify.authenticate]
+});
+
+fastify.register(fastifyProxy, {
+  upstream: 'http://ai-service:8000',
+  prefix: '/api/ai',
+  preHandler: [fastify.authenticate]
+});
+
+// Event-driven Bridge endpoints (kept as-is)
 fastify.post('/listings', { preHandler: [fastify.authenticate] }, async (request, reply) => {
   const listing = request.body;
   listing.id = uuidv4();
