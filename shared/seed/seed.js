@@ -18,7 +18,6 @@ function makeKnex(database) {
 }
 
 async function seedMarketplace(marketplaceDb) {
-  // Insert sample commodities
   const commodities = [
     { name: 'Tomatoes', category: 'tomatoes', unit: 'lb', price_per_unit: 1.2 },
     { name: 'Peppers', category: 'peppers', unit: 'lb', price_per_unit: 1.5 },
@@ -27,22 +26,19 @@ async function seedMarketplace(marketplaceDb) {
     { name: 'Strawberries', category: 'strawberries', unit: 'lb', price_per_unit: 3.5 }
   ];
 
-  await marketplaceDb('commodities').insert(commodities).catch((err) => {
-    // If unique constraints exist and the seed is re-run, try upsert-like fallback.
-    // If your schema differs, update this logic.
-    throw err;
-  });
+  // Seed commodities
+  // (Re-runs may fail if unique constraints exist; your schema uses serial PKs and
+  // doesn't include uniques, so plain insert should be fine.)
+  await marketplaceDb('commodities').insert(commodities);
 
-  // Insert sample users
   const users = [
     { name: 'Test Buyer', email: 'buyer@example.com', role: 'buyer' },
     { name: 'Test Seller', email: 'seller@example.com', role: 'seller' },
     { name: 'Test Driver', email: 'driver@example.com', role: 'driver' }
   ];
 
-  await marketplaceDb('users').insert(users).catch((err) => {
-    throw err;
-  });
+  // Seed users
+  await marketplaceDb('users').insert(users);
 }
 
 async function seedLogistics(logisticsDb) {
@@ -51,15 +47,14 @@ async function seedLogistics(logisticsDb) {
     { name: 'Driver Two', vehicle_type: 'Van', is_available: true }
   ];
 
-  await logisticsDb('drivers').insert(drivers).catch((err) => {
-    throw err;
-  });
+  await logisticsDb('drivers').insert(drivers);
 }
 
 async function verifyPayment(paymentDb) {
   // Insert nothing, just verify connection and basic query
   const res = await paymentDb.raw('SELECT 1 as ok');
-  if (!res?.rows?.[0]?.ok && res?.[0]?.ok !== 1) {
+  const ok = res?.rows?.[0]?.ok ?? res?.[0]?.ok;
+  if (ok !== 1) {
     throw new Error('Payment DB verification query did not return expected result');
   }
 }
@@ -83,9 +78,7 @@ async function seed() {
 }
 
 seed()
-  .then(() => {
-    process.exit(0);
-  })
+  .then(() => process.exit(0))
   .catch((err) => {
     console.error(err);
     process.exit(1);

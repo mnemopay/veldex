@@ -53,9 +53,14 @@ fastify.post('/auth/login', async (request, reply) => {
 });
 
 // Proxy Routes to Services
-// Note: prefix + wildcard forwarding:
-//   /api/marketplace/* -> http://marketplace-service:3000/* (minus /api/marketplace)
-// etc.
+// Required:
+//   /api/marketplace/* > http://marketplace-service:3000
+//   /api/payments/* > http://payment-service:3000
+//   /api/logistics/* > http://logistics-service:3000
+//   /api/ingestion/* > http://ingestion-service:3000
+//   /api/ai/* > http://ai-service:8000
+//
+// Using http-proxy plugin's `prefix` option so the upstream receives paths like /*.
 fastify.register(fastifyProxy, {
   upstream: 'http://marketplace-service:3000',
   prefix: '/api/marketplace',
