@@ -2,7 +2,11 @@
   "name": "ai-service",
   "version": "1.0.0",
   "main": "main.py",
-  "dependencies": {},
+  "dependencies": {
+    "dotenv": "^16.3.0",
+    "knex": "^3.0.1",
+    "pg": "^8.11.3"
+  },
   "scripts": {},
   "devDependencies": {},
   "private": true

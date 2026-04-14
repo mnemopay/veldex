@@ -41,8 +41,7 @@ services:
   ai-migrator:
     image: node:20-alpine
     working_dir: /app
-    environment:
-      DB_HOST: postgres
+    env_file: .env
     depends_on:
       - postgres
     volumes:
