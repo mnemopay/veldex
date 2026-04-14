@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: agri_marketplace
+    volumes:
+      - ./shared/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    env_file: .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+
+  marketplace-service:
+    build:
+      context: .
+      dockerfile: ./services/marketplace-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ./services/ai-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - redis
+
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: ./services/ingestion-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+
+  logistics-service:
+    build:
+      context: .
+      dockerfile: ./services/logistics-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
