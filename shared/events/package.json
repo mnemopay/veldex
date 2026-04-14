@@ -1,8 +1,0 @@
-{
-  "name": "@agri-mvp/shared-events",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "ioredis": "^5.3.0"
-  }
-}

@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-prophet
-redis
-python-dotenv
-pandas
-pydantic
-psycopg2-binary
