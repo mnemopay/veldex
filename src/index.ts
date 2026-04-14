@@ -15,8 +15,15 @@ import './modules/payments/service';
 import './modules/compliance/service';
 
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
-const JWT_SECRET = process.env['JWT_SECRET'] ?? 'dev-secret-change-in-production';
 const NODE_ENV = process.env['NODE_ENV'] ?? 'development';
+
+// Fail-closed: require JWT_SECRET in production
+const JWT_SECRET = process.env['JWT_SECRET'];
+if (!JWT_SECRET && NODE_ENV === 'production') {
+  console.error('FATAL: JWT_SECRET environment variable is required in production');
+  process.exit(1);
+}
+const resolvedJwtSecret = JWT_SECRET ?? 'dev-secret-change-in-production';
 
 async function bootstrap(): Promise<void> {
   // ── Run schema migrations ──────────────────
@@ -34,13 +41,14 @@ async function bootstrap(): Promise<void> {
   });
 
   // ── Plugins ────────────────────────────────
+  const allowedOrigins = (process.env['ALLOWED_ORIGINS'] ?? '').split(',').filter(Boolean);
   await app.register(fastifyCors, {
-    origin: NODE_ENV === 'development' ? true : (process.env['ALLOWED_ORIGINS'] ?? '').split(','),
+    origin: NODE_ENV === 'development' ? true : (allowedOrigins.length > 0 ? allowedOrigins : false),
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await app.register(fastifyJwt, {
-    secret: JWT_SECRET,
+    secret: resolvedJwtSecret,
     sign: { expiresIn: '7d' },
   });
 
